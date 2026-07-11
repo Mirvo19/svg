@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SVG Animator</title>
+  <meta name="description" content="Upload any SVG, run it through a 6-step preprocessing pipeline, animate it with GSAP precision, and export a fully self-contained HTML file." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@simonwep/pickr/dist/themes/nano.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+  <link rel="stylesheet" href="css/app.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif']}}}}</script>
+  <script src="https://unpkg.com/dompurify@3/dist/purify.min.js"></script>
+  <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://unpkg.com/@simonwep/pickr/dist/pickr.min.js"></script>
+  <script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.min.js"></script>
+  <script src="https://unpkg.com/tippy.js@6/dist/tippy-bundle.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body class="dark bg-zinc-950 text-zinc-100 overflow-hidden h-screen flex flex-col">
+
+  <nav id="main-nav" class="flex items-center justify-between px-5 h-14 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm flex-shrink-0 z-50">
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-md bg-zinc-100 flex items-center justify-center flex-shrink-0">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#09090b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+      </div>
+      <span class="text-sm font-semibold tracking-tight">SVG Animator</span>
+    </div>
+    <div class="flex items-center gap-0.5">
+      <a href="#editor" class="nav-link px-3 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-all" data-view="editor">Editor</a>
+      <a href="#how-it-works" class="nav-link px-3 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-all" data-view="how-it-works">How It Works</a>
+      <a href="#feedback" class="nav-link px-3 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-all" data-view="feedback">Feedback</a>
+    </div>
+  </nav>
+
+  <div id="view-editor" class="view flex-1 flex overflow-hidden">
+
+    <aside class="w-72 flex-shrink-0 border-r border-zinc-800 flex flex-col overflow-y-auto bg-zinc-950">
+      <div class="p-5 flex flex-col gap-5 flex-1">
+
+        <div>
+          <p class="ctrl-label mb-2.5">Animation Mode</p>
+          <div id="mode-tabs" class="grid grid-cols-3 gap-1 p-1 bg-zinc-900 rounded-lg border border-zinc-800">
+            <button class="mode-btn active" data-mode="draw" data-tippy-content="Stroke draws itself on screen">Draw</button>
+            <button class="mode-btn" data-mode="fade" data-tippy-content="Elements fade in one by one">Fade</button>
+            <button class="mode-btn" data-mode="dash" data-tippy-content="A dash travels along each path">Dash</button>
+            <button class="mode-btn" data-mode="scale" data-tippy-content="Paths pop in from zero scale">Scale</button>
+            <button class="mode-btn" data-mode="slide" data-tippy-content="Elements slide in from the left">Slide</button>
+            <button class="mode-btn" data-mode="spin" data-tippy-content="Paths spin in while fading up">Spin</button>
+            <button class="mode-btn" data-mode="blur" data-tippy-content="Elements fade in from blurry">Blur</button>
+            <button class="mode-btn" data-mode="bounce" data-tippy-content="Paths bounce in from above">Bounce</button>
+            <button class="mode-btn" data-mode="flip" data-tippy-content="Paths flip in on the X axis">Flip</button>
+            <button class="mode-btn" data-mode="wave" data-tippy-content="Ripple wave entrance effect">Wave</button>
+          </div>
+        </div>
+
+        <div class="h-px bg-zinc-800"></div>
+
+        <div class="flex flex-col gap-4">
+          <div class="ctrl-group">
+            <div class="ctrl-header"><label class="ctrl-label">Duration</label><span id="val-duration" class="ctrl-val">2.0s</span></div>
+            <input type="range" id="sl-duration" class="ctrl-slider mt-2" min="0.2" max="8" step="0.1" value="2" data-tippy-content="Animation duration per path element" />
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-header"><label class="ctrl-label">Initial Delay</label><span id="val-delay" class="ctrl-val">0.0s</span></div>
+            <input type="range" id="sl-delay" class="ctrl-slider mt-2" min="0" max="3" step="0.05" value="0" data-tippy-content="Delay before animation begins" />
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-header"><label class="ctrl-label">Stagger</label><span id="val-stagger" class="ctrl-val">0.05s</span></div>
+            <input type="range" id="sl-stagger" class="ctrl-slider mt-2" min="0" max="1" step="0.01" value="0.05" data-tippy-content="Time offset between consecutive path elements" />
+          </div>
+        </div>
+
+        <div class="h-px bg-zinc-800"></div>
+
+        <div class="ctrl-group">
+          <label class="ctrl-label block mb-2">Easing</label>
+          <div class="relative">
+            <select id="sel-easing" class="ctrl-select w-full pr-7 appearance-none" data-tippy-content="GSAP easing function applied to each path">
+              <option value="power2.inOut">Power2 In-Out</option>
+              <option value="power2.in">Power2 In</option>
+              <option value="power2.out">Power2 Out</option>
+              <option value="power3.inOut">Power3 In-Out</option>
+              <option value="power4.inOut">Power4 In-Out</option>
+              <option value="sine.inOut">Sine In-Out</option>
+              <option value="sine.out">Sine Out</option>
+              <option value="expo.inOut">Expo In-Out</option>
+              <option value="circ.inOut" selected>Circ In-Out</option>
+              <option value="back.inOut">Back In-Out</option>
+              <option value="elastic.out(1,0.5)">Elastic Out</option>
+              <option value="linear">Linear</option>
+            </select>
+            <svg class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+
+        <div class="h-px bg-zinc-800"></div>
+
+        <div class="flex flex-col gap-4">
+          <div class="ctrl-group">
+            <label class="ctrl-label block mb-2">Stroke Color</label>
+            <div class="flex items-center gap-2.5">
+              <div id="pickr-stroke"></div>
+              <span id="stroke-hex" class="text-xs font-mono text-zinc-400">#ffffff</span>
+            </div>
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-header"><label class="ctrl-label">Stroke Width</label><span id="val-sw" class="ctrl-val">auto</span></div>
+            <input type="range" id="sl-sw" class="ctrl-slider mt-2" min="0.1" max="4" step="0.1" value="1" data-tippy-content="Multiplier on the auto stroke width (0.5% of viewBox diagonal)" />
+          </div>
+          <div class="ctrl-group">
+            <label class="ctrl-label block mb-2">Background</label>
+            <div class="flex items-center gap-2.5">
+              <div id="pickr-bg"></div>
+              <span id="bg-hex" class="text-xs font-mono text-zinc-400">#09090b</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="h-px bg-zinc-800"></div>
+
+        <div class="flex flex-col gap-2 pb-2">
+          <button id="btn-play" class="action-btn action-btn-secondary" disabled>
+            <i data-lucide="play" class="w-4 h-4"></i><span>Play</span>
+          </button>
+          <button id="btn-restart" class="action-btn action-btn-secondary" disabled>
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i><span>Restart</span>
+          </button>
+          <button id="btn-export" class="action-btn action-btn-primary" disabled>
+            <i data-lucide="download" class="w-4 h-4"></i><span>Export HTML</span>
+          </button>
+        </div>
+
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <div id="preview-container" class="flex-1 relative flex items-center justify-center overflow-hidden" style="background:#09090b">
+
+        <div id="dropzone" tabindex="0" role="button" aria-label="Drop SVG file here or press Enter to open file picker" class="dropzone-idle absolute inset-6 rounded-2xl border-2 border-dashed border-zinc-700 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all outline-none focus-visible:border-zinc-400">
+          <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+            <i data-lucide="upload-cloud" class="w-8 h-8 text-zinc-500"></i>
+          </div>
+          <div class="text-center">
+            <p class="text-zinc-300 font-medium text-sm">Drop an SVG file here</p>
+            <p class="text-zinc-600 text-xs mt-1">or press <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-xs font-mono">Enter</kbd> to browse</p>
+          </div>
+          <p class="text-zinc-700 text-xs">Supports complex SVGs · <use> tags · Multiple shapes</p>
+        </div>
+
+        <div id="preview-inner" class="hidden w-full h-full flex items-center justify-center p-8"></div>
+
+        <div id="upload-progress" class="hidden absolute inset-0 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm">
+          <div class="flex flex-col items-center gap-3">
+            <div class="spinner"></div>
+            <p class="text-zinc-400 text-sm" id="progress-label">Processing SVG…</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="bottom-bar" class="flex-shrink-0 h-10 border-t border-zinc-800 flex items-center px-4 gap-3">
+        <span id="status-label" class="text-xs text-zinc-600">No file loaded</span>
+        <div class="flex-1"></div>
+        <span id="path-count" class="text-xs text-zinc-700"></span>
+      </div>
+    </main>
+
+    <input type="file" id="file-input" accept=".svg,image/svg+xml" class="hidden" />
+  </div>
+
+  <!-- ═══════════════════ HOW IT WORKS VIEW ═══════════════════ -->
+  <div id="view-how-it-works" class="view hidden flex-1 overflow-y-auto">
+    <div class="max-w-2xl mx-auto px-6 py-16">
+      <h1 class="text-3xl font-semibold tracking-tight mb-2">How It Works</h1>
+      <p class="text-zinc-500 mb-12 text-base">Every uploaded SVG passes through a six-step preprocessing engine before a single frame is animated.</p>
+
+      <div class="flex flex-col gap-10">
+        <div class="how-step"><span class="step-num">01</span>
+          <div><h2 class="step-title">Validation & Sanitization</h2>
+          <p class="step-body">The file's MIME type is verified, then the raw text is passed through DOMPurify with the <code>svg</code> profile, stripping any embedded scripts or foreign objects that could pose a security risk before parsing begins.</p></div>
+        </div>
+        <div class="how-step"><span class="step-num">02</span>
+          <div><h2 class="step-title">Resolve &lt;use&gt; References</h2>
+          <p class="step-body">SVGs commonly re-use geometry via <code>&lt;use href="#id"&gt;</code>. The animation engine cannot reach inside the shadow DOM of <code>&lt;use&gt;</code> elements, so every reference is resolved: the target is deep-cloned, <code>x/y</code> offsets are baked in as a transform, and the <code>&lt;use&gt;</code> tag is replaced with real geometry.</p></div>
+        </div>
+        <div class="how-step"><span class="step-num">03</span>
+          <div><h2 class="step-title">Shape → Path Conversion</h2>
+          <p class="step-body">All primitive shapes (<code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>) are converted to equivalent <code>&lt;path&gt;</code> elements with mathematically precise <code>d</code> attributes. Rounded rectangle corners use arc commands. All original attributes are preserved.</p></div>
+        </div>
+        <div class="how-step"><span class="step-num">04</span>
+          <div><h2 class="step-title">Transform Flattening</h2>
+          <p class="step-body">Nested <code>transform</code> attributes distort stroke-dash animation math. The engine traverses the ancestor chain for every path, computes the accumulated transformation matrix, bakes it into the path coordinates using full SVG path command parsing, and removes all <code>transform</code> attributes.</p></div>
+        </div>
+        <div class="how-step"><span class="step-num">05</span>
+          <div><h2 class="step-title">Stroke & Fill Isolation</h2>
+          <p class="step-body">Self-draw animation requires a stroke. Paths with only a fill have their fill color moved to stroke, and fill is set to <code>none</code> with the original stored in <code>data-original-fill</code>. Stroke width is set automatically to 0.5% of the viewBox diagonal — correct on both 24px icons and 2000px illustrations.</p></div>
+        </div>
+        <div class="how-step"><span class="step-num">06</span>
+          <div><h2 class="step-title">ViewBox Normalization</h2>
+          <p class="step-body">If the SVG lacks a <code>viewBox</code>, one is synthesized from width/height attributes. Absolute dimensions are removed and replaced with <code>width:100%; height:100%</code> so the preview scales fluidly without distortion.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-feedback" class="view hidden flex-1 overflow-y-auto">
+    <div class="max-w-lg mx-auto px-6 py-16">
+      <h1 class="text-3xl font-semibold tracking-tight mb-2">Feedback</h1>
+      <p class="text-zinc-500 mb-10 text-sm">Found a bug? Have a feature idea? Send a message directly to the Discord channel.</p>
+      <form id="feedback-form" class="flex flex-col gap-4" novalidate>
+        <div>
+          <label class="ctrl-label block mb-1.5">Your Name</label>
+          <input type="text" id="fb-name" placeholder="Anonymous" class="ctrl-input" />
+        </div>
+        <div>
+          <label class="ctrl-label block mb-1.5">Message <span class="text-red-500">*</span></label>
+          <textarea id="fb-message" rows="5" placeholder="Describe the bug or feature request…" class="ctrl-input resize-none" required></textarea>
+        </div>
+        <button type="submit" id="btn-send" class="action-btn action-btn-primary mt-2">
+          <i data-lucide="send" class="w-4 h-4"></i><span>Send Feedback</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/preprocessor.js"></script>
+  <script src="js/animator.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
